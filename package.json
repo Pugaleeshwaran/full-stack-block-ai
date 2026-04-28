@@ -2,11 +2,15 @@
   "name": "blockly-stem-app",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build": "npx expo export --platform web"
   },
   "dependencies": {
     "@teachablemachine/image": "^0.8.5",

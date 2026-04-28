@@ -164,6 +164,7 @@ async def convert(
     weights_bin: UploadFile = File(...),
     labels:      str        = Form(...),
 ):
+    print("✅ /convert API HIT", flush=True)
     tmpdir = tempfile.mkdtemp()
     try:
         model_json_bytes  = await model_json.read()

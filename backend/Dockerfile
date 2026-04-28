@@ -41,4 +41,4 @@ RUN pip install --no-cache-dir nncase-kpu
 COPY . .
 
 EXPOSE 5001
-CMD ["uvicorn", "convert_server:app", "--host", "0.0.0.0", "--port", "5001"]
+CMD sh -c "uvicorn convert_server:app --host 0.0.0.0 --port ${PORT:-5001} --workers 1 --timeout-keep-alive 120"

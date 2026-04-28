@@ -5,7 +5,7 @@ import {
     ActivityIndicator, TextInput
 } from 'react-native';
 
-const CONVERT_SERVER = 'http://localhost:5005';
+const CONVERT_SERVER = 'https://full-stack-block-ai-backend.onrender.com';
 
 function sendClassesToBlockly(classes) {
     const payload = JSON.stringify({ type: 'AI_MODEL_TRAINED', classes });

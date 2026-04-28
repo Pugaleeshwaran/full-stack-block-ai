@@ -1,0 +1,2067 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Model Training — MobileNet V3</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f8fafc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            flex-shrink: 0;
+        }
+
+        .back-btn {
+            padding: 8px 14px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .back-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .deploy-btn {
+            padding: 8px 16px;
+            background: #f54254;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            transition: opacity 0.2s;
+        }
+
+        .deploy-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .deploy-btn:not(:disabled):hover {
+            opacity: 0.85;
+        }
+
+        .status-bar {
+            background: #f1f5f9;
+            padding: 6px 20px;
+            font-size: 13px;
+            color: #475569;
+            min-height: 30px;
+            flex-shrink: 0;
+        }
+
+        .columns {
+            display: flex;
+            flex-direction: row;
+            gap: 16px;
+            padding: 16px;
+            overflow-x: auto;
+            overflow-y: auto;
+            flex: 1;
+            align-items: flex-start;
+        }
+
+        .col {
+            width: 340px;
+            flex-shrink: 0;
+        }
+
+        .col-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 12px;
+        }
+
+        .arrow {
+            display: flex;
+            align-items: flex-start;
+            padding-top: 180px;
+            font-size: 28px;
+            color: #cbd5e1;
+            flex-shrink: 0;
+        }
+
+        /* ── Crop Size Selector ─────────────────────────────────── */
+        .crop-size-bar {
+            background: #fff;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .crop-size-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            white-space: nowrap;
+        }
+
+        .crop-size-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            background: #f8fafc;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .crop-size-select:focus {
+            border-color: #f54254;
+        }
+
+        .crop-size-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+
+        .badge-224 {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-320 {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-480 {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .crop-size-hint {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+
+        /* ── rest of styles unchanged ───────────────────────────── */
+        .class-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            border-left: 4px solid #ccc;
+        }
+
+        .class-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .class-name {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-bottom: 1.5px solid #e2e8f0;
+            outline: none;
+            background: transparent;
+            padding-bottom: 2px;
+        }
+
+        .sample-count {
+            font-size: 12px;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 4px;
+        }
+
+        .remove-btn:hover {
+            color: #ef4444;
+        }
+
+        .cam-area {
+            margin-bottom: 8px;
+        }
+
+        .add-btns {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .add-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1.5px solid;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            background: transparent;
+            transition: opacity 0.15s;
+        }
+
+        .add-btn:hover {
+            opacity: 0.75;
+        }
+
+        .video-wrap {
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .live-video {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 8px;
+            background: #000;
+            display: block;
+        }
+
+        .crop-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 70%;
+            border: 2px dashed rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        .cam-btns {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .hold-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 13px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .stop-cam-btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .thumbs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .thumb-wrap {
+            position: relative;
+        }
+
+        .thumb-wrap img {
+            width: 54px;
+            height: 54px;
+            object-fit: cover;
+            border-radius: 6px;
+            display: block;
+        }
+
+        .thumb-del {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 16px;
+            height: 16px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .add-class-btn {
+            border: 2px dashed #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+            color: #94a3b8;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            background: none;
+            width: 100%;
+            margin-top: 4px;
+            transition: border-color 0.15s;
+        }
+
+        .add-class-btn:hover {
+            border-color: #94a3b8;
+        }
+
+        .add-bg-btn {
+            border: 2px dashed #f59e0b;
+            border-radius: 10px;
+            padding: 10px 14px;
+            text-align: center;
+            color: #92400e;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            background: #fffbeb;
+            width: 100%;
+            margin-top: 8px;
+            transition: all 0.15s;
+        }
+
+        .add-bg-btn:hover {
+            background: #fef3c7;
+        }
+
+        .tips-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #166534;
+            line-height: 1.7;
+        }
+
+        .warn-box {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #92400e;
+            line-height: 1.7;
+        }
+
+        .train-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        .state-ready {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .state-ready .icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .state-ready h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        .state-ready p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .state-progress {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .progress-pct {
+            font-size: 32px;
+            font-weight: 800;
+            color: #f54254;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #f1f5f9;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #f54254;
+            border-radius: 3px;
+            transition: width 0.2s ease;
+        }
+
+        .progress-label {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .state-done {
+            text-align: center;
+            padding: 16px 0;
+        }
+
+        .state-done .icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .state-done h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: #10b981;
+            margin-bottom: 4px;
+        }
+
+        .state-done p {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .retrain-btn {
+            margin-top: 8px;
+            padding: 6px 16px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 6px;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .train-btn {
+            width: 100%;
+            padding: 14px;
+            background: #f54254;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: opacity 0.2s;
+        }
+
+        .train-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .train-btn:not(:disabled):hover {
+            opacity: 0.85;
+        }
+
+        .stats {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .stat-name {
+            flex: 1;
+            font-size: 13px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .stat-count {
+            font-size: 13px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .preview-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+
+        .preview-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .preview-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .model-badge {
+            font-size: 10px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c3aed, #0ea5e9);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .test-video {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #0f172a;
+            display: none;
+        }
+
+        .no-cam-placeholder {
+            width: 100%;
+            height: 200px;
+            background: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+            font-size: 13px;
+            gap: 8px;
+        }
+
+        .no-cam-placeholder .cam-icon {
+            font-size: 32px;
+        }
+
+        .detect-status {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+
+        .output-section {
+            padding: 14px 16px;
+        }
+
+        .output-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        .output-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .output-label {
+            width: 80px;
+            font-size: 13px;
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .output-bar-wrap {
+            flex: 1;
+            height: 28px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .output-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            min-width: 0;
+            transition: width 0.15s ease;
+        }
+
+        .output-bar-pct {
+            font-size: 12px;
+            font-weight: 800;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .output-bar-pct-outside {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .threshold-wrap {
+            padding: 10px 16px;
+            background: #fafafa;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .threshold-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+
+        .threshold-slider {
+            width: 100%;
+            accent-color: #f54254;
+            cursor: pointer;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 8px;
+            color: #fff;
+            transition: opacity 0.2s;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .action-btn:not(:disabled):hover {
+            opacity: 0.85;
+        }
+
+        .btn-test {
+            background: #0ea5e9;
+        }
+
+        .btn-deploy {
+            background: #7c3aed;
+        }
+
+        .btn-export {
+            background: #10b981;
+        }
+
+        .btn-deploy-k230 {
+            background: #f59e0b;
+        }
+
+        .k230-settings {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #64748b;
+            background: #f8fafc;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .k230-input {
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 12px;
+            outline: none;
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .action-wrap {
+            padding: 12px 16px 16px;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 10px;
+            line-height: 1.6;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <button class="back-btn" onclick="goBack()">← Workspace</button>
+        <h1>Model Training</h1>
+        <button class="deploy-btn" id="deployHeaderBtn" onclick="deployToBlockly()" disabled>
+            Deploy to Blocks →
+        </button>
+    </div>
+
+    <div class="status-bar" id="statusBar"></div>
+
+    <div class="columns">
+
+        <!-- Column 1: Collect -->
+        <div class="col">
+            <div class="col-title">1. Collect Images</div>
+
+            <!-- ── Crop Size Selector ── -->
+            <div class="crop-size-bar">
+                <span class="crop-size-label">📐 Crop Size</span>
+                <select class="crop-size-select" id="cropSizeSelect" onchange="updateCropSize(this.value)">
+                    <option value="224">224 px — Fast</option>
+                    <option value="320" selected>320 px — Balanced</option>
+                    <option value="480">480 px — Sharp</option>
+                </select>
+                <span class="crop-size-badge badge-320" id="cropSizeBadge">Balanced</span>
+            </div>
+            <div class="crop-size-hint" style="margin-bottom:12px;padding:0 2px;">
+                Controls the intermediate capture canvas before the model's 224×224 resize.
+                Larger = more detail preserved during crop.
+            </div>
+
+            <div id="classList"></div>
+            <button class="add-class-btn" onclick="addClass()">
+                + Add a Class
+            </button>
+            <button class="add-bg-btn" onclick="addBackgroundClass()">
+                🌄 + Add Background Class (recommended)
+            </button>
+            <div class="tips-box">
+                💡 <b>Tips for specific object detection:</b><br>
+                • Fill frame with your object (60%+)<br>
+                • Capture from 5 different locations<br>
+                • Different angles and distances<br>
+                • Always add a Background class<br>
+                • 50+ images per class minimum
+            </div>
+            <div class="warn-box">
+                ⚠️ <b>Avoid background issues:</b><br>
+                • Never capture all images in same spot<br>
+                • Move to different rooms/walls<br>
+                • Background class teaches "nothing here"
+            </div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <!-- Column 2: Train -->
+        <div class="col">
+            <div class="col-title">2. Train Model</div>
+            <div class="train-card">
+                <div id="trainStateBox">
+                    <div class="state-ready">
+                        <div class="icon">🧠</div>
+                        <h3>Ready to train.</h3>
+                        <p>Add at least 10 images per class<br>
+                            then press Train.</p>
+                    </div>
+                </div>
+                <button class="train-btn" id="trainBtn" onclick="trainModel()">
+                    Train Model
+                </button>
+                <div class="stats" id="statsList"></div>
+            </div>
+        </div>
+
+        <div class="arrow">→</div>
+
+        <!-- Column 3: Preview -->
+        <div class="col">
+            <div class="col-title">3. Preview &amp; Deploy</div>
+            <div class="preview-card">
+
+                <div class="preview-header">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span class="preview-title">Preview</span>
+                        <span class="model-badge">MobileNet V3</span>
+                    </div>
+                    <button class="action-btn btn-test" id="testBtn" onclick="toggleTestWebcam()" disabled style="width:auto;padding:6px 14px;
+                           font-size:12px;margin-top:0">
+                        Start Webcam
+                    </button>
+                </div>
+
+                <div id="videoWrap">
+                    <div class="no-cam-placeholder" id="camPlaceholder">
+                        <div class="cam-icon">📷</div>
+                        <div>Start webcam to preview</div>
+                        <div style="font-size:11px;color:#334155;">
+                            Using MobileNet V3 — best accuracy
+                        </div>
+                    </div>
+                    <video id="testVideo" class="test-video" autoplay playsinline muted></video>
+                </div>
+
+                <div class="detect-status" id="detectStatus">
+                    <div style="
+                    width:36px;height:36px;border-radius:50%;
+                    background:#f1f5f9;display:flex;
+                    align-items:center;justify-content:center;
+                    font-size:18px;flex-shrink:0;">🔍</div>
+                    <div>
+                        <div style="font-size:13px;font-weight:700;
+                        color:#94a3b8;">Not Detected</div>
+                        <div style="font-size:11px;color:#cbd5e1;
+                        margin-top:1px;">
+                            Train model and start webcam
+                        </div>
+                    </div>
+                </div>
+
+                <div class="output-section">
+                    <div class="output-title">Output</div>
+                    <div id="outputBars"></div>
+                </div>
+
+                <div class="threshold-wrap">
+                    <div class="threshold-label">
+                        <span>Detection Threshold</span>
+                        <span id="thresholdValue">85%</span>
+                    </div>
+                    <input type="range" class="threshold-slider" id="thresholdSlider" min="50" max="99" value="85"
+                        oninput="updateThreshold(this.value)" />
+                </div>
+
+                <div class="action-wrap">
+                    <button class="action-btn btn-deploy" id="deployCardBtn" onclick="deployToBlockly()" disabled>
+                        Deploy to Blockly
+                    </button>
+                    <button class="action-btn btn-deploy-k230" id="deployK230Btn" onclick="deployToK230()" disabled>
+                        🚀 Deploy to K230
+                    </button>
+                    <button class="action-btn btn-export" id="exportBtn" onclick="exportKmodel()" disabled>
+                        Export .kmodel (Local)
+                    </button>
+                    
+                    <div class="k230-settings">
+                        <span>K230 IP:</span>
+                        <input type="text" class="k230-input" id="k230IpInput" value="192.168.4.1" style="width: 100px;">
+                        <span>Port:</span>
+                        <input type="text" class="k230-input" id="k230PortInput" value="8080" style="width: 50px;">
+                    </div>
+
+                    <p class="hint">
+                        <b>Deploy to Blockly</b> adds AI blocks.<br>
+                        <b>Deploy to K230</b> pushes model directly to board.<br>
+                        <b>Export</b> downloads model locally.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        'use strict';
+
+        const CONVERT_SERVER = 'http://localhost:5001';
+
+        const MOBILENET_V3_URL =
+            'https://tfhub.dev/google/tfjs-model/imagenet/' +
+            'mobilenet_v3_small_100_224/feature_vector/5/default/1';
+
+        // ── Crop size state (intermediate canvas before model resize) ──
+        let CROP_SIZE = 320; // default: balanced
+
+        const CROP_BADGE_MAP = {
+            224: { label: 'Fast', cls: 'badge-224' },
+            320: { label: 'Balanced', cls: 'badge-320' },
+            480: { label: 'Sharp', cls: 'badge-480' },
+        };
+
+        function updateCropSize(val) {
+            CROP_SIZE = parseInt(val);
+            const badge = document.getElementById('cropSizeBadge');
+            const info = CROP_BADGE_MAP[CROP_SIZE];
+            badge.textContent = info.label;
+            badge.className = 'crop-size-badge ' + info.cls;
+            setStatus(`Crop size set to ${CROP_SIZE}×${CROP_SIZE}px — affects new captures.`);
+        }
+
+        let classes = [
+            { id: 1, name: 'Class1', images: [], color: '#f54254' },
+            { id: 2, name: 'Class2', images: [], color: '#7c3aed' },
+        ];
+        let nextClassId = 3;
+        const CLASS_COLORS = [
+            '#f54254', '#7c3aed', '#0ea5e9',
+            '#10b981', '#f59e0b', '#ec4899',
+            '#8b5cf6', '#06b6d4', '#84cc16'
+        ];
+
+        let mobileNetV3 = null;
+        let headModel = null;
+        let classNamesCopy = [];
+        let trained = false;
+
+        let activeCamIdx = null;
+        let activeCamStream = null;
+        let captureTimer = null;
+        let testWebcamActive = false;
+        let testTimer = null;
+
+        let THRESHOLD = 0.85;
+
+        // ══════════════════════════════════════════════════════════════
+        // THRESHOLD
+        // ══════════════════════════════════════════════════════════════
+        function updateThreshold(val) {
+            THRESHOLD = parseInt(val) / 100;
+            document.getElementById('thresholdValue').textContent = val + '%';
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // HELPERS
+        // ══════════════════════════════════════════════════════════════
+        function setStatus(msg) {
+            document.getElementById('statusBar').textContent = msg;
+        }
+
+        function updateButtons() {
+            ['deployHeaderBtn', 'deployCardBtn', 'deployK230Btn', 'exportBtn', 'testBtn']
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = !trained;
+                });
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function isBgClass(name) {
+            const n = name.toLowerCase();
+            return n.includes('background') || n.includes('bg') ||
+                n.includes('nothing') || n.includes('empty');
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // BACKGROUND REMOVAL — uses CROP_SIZE for intermediate canvas
+        // ══════════════════════════════════════════════════════════════
+        function applyBackgroundFade(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width; // respects CROP_SIZE
+            const data = ctx.getImageData(0, 0, size, size);
+            const px = data.data;
+            const cx = size / 2;
+            const cy = size / 2;
+            const innerR = size * 0.3125; // ~70/224 ratio
+            const outerR = size / 2;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const idx = (y * size + x) * 4;
+                    const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+                    if (dist > innerR) {
+                        const t = Math.min(1,
+                            (dist - innerR) / (outerR - innerR)
+                        );
+                        px[idx] = Math.round(px[idx] * (1 - t) + 128 * t);
+                        px[idx + 1] = Math.round(px[idx + 1] * (1 - t) + 128 * t);
+                        px[idx + 2] = Math.round(px[idx + 2] * (1 - t) + 128 * t);
+                    }
+                }
+            }
+            ctx.putImageData(data, 0, 0);
+        }
+
+        // ── Center-crop source into canvas at CROP_SIZE ──────────────
+        function centerCropToCanvas(source, canvas) {
+            const ctx = canvas.getContext('2d');
+            let srcW, srcH;
+            if (source instanceof HTMLVideoElement) {
+                srcW = source.videoWidth || CROP_SIZE;
+                srcH = source.videoHeight || CROP_SIZE;
+            } else {
+                srcW = source.naturalWidth || source.width || CROP_SIZE;
+                srcH = source.naturalHeight || source.height || CROP_SIZE;
+            }
+            const cropSize = Math.min(srcW, srcH) * 0.70;
+            const srcX = (srcW - cropSize) / 2;
+            const srcY = (srcH - cropSize) / 2;
+            // Draw into canvas at its own size (CROP_SIZE × CROP_SIZE)
+            ctx.drawImage(
+                source, srcX, srcY, cropSize, cropSize,
+                0, 0, canvas.width, canvas.height
+            );
+        }
+
+        // ── Build a canvas at current CROP_SIZE with crop + fade ──────
+        function prepareCanvas(source) {
+            const canvas = document.createElement('canvas');
+            canvas.width = CROP_SIZE;
+            canvas.height = CROP_SIZE;
+            centerCropToCanvas(source, canvas);
+            applyBackgroundFade(canvas);
+            return canvas; // CROP_SIZE × CROP_SIZE
+        }
+
+        // ── Convert CROP_SIZE canvas → V3 tensor (always 224×224) ────
+        // The resizeBilinear here is the ONLY resize the model ever sees.
+        function canvasToV3Tensor(canvas) {
+            return tf.tidy(() => {
+                return tf.browser.fromPixels(canvas)
+                    .resizeBilinear([224, 224]) // model always gets 224×224
+                    .toFloat()
+                    .div(255.0)
+                    .expandDims(0);
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // MOBILENET V3
+        // ══════════════════════════════════════════════════════════════
+        async function loadMobileNetV3() {
+            if (mobileNetV3) return mobileNetV3;
+            setStatus('Loading MobileNet V3 from TF Hub...');
+            mobileNetV3 = await tf.loadGraphModel(
+                MOBILENET_V3_URL, { fromTFHub: true }
+            );
+            return mobileNetV3;
+        }
+
+        async function extractFeaturesAsync(source) {
+            if (!mobileNetV3) return null;
+            const canvas = prepareCanvas(source);   // CROP_SIZE canvas
+            const tensor = canvasToV3Tensor(canvas); // → 224 tensor
+            const features = mobileNetV3.execute(tensor);
+            tensor.dispose();
+            const flat = features.flatten();
+            features.dispose();
+            return flat;
+        }
+
+        async function predictFromElement(el) {
+            if (!mobileNetV3 || !headModel) return null;
+            const canvas = prepareCanvas(el);
+            const tensor = canvasToV3Tensor(canvas);
+            const features = mobileNetV3.execute(tensor);
+            tensor.dispose();
+            const flat = features.flatten().expandDims(0);
+            features.dispose();
+            const probs = headModel.predict(flat).dataSync();
+            flat.dispose();
+            return classNamesCopy.map((name, i) => ({
+                className: name, probability: probs[i]
+            }));
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // OUTPUT BARS
+        // ══════════════════════════════════════════════════════════════
+        function initOutputBars() {
+            const container = document.getElementById('outputBars');
+            container.innerHTML = classes.map((cls, i) => `
+        <div class="output-row" id="output-row-${i}">
+            <span class="output-label"
+                style="color:${cls.color}"
+                id="output-label-${i}">
+                ${cls.name}
+            </span>
+            <div class="output-bar-wrap">
+                <div class="output-bar-fill"
+                    id="output-bar-${i}"
+                    style="width:0%;background:${cls.color}">
+                    <span class="output-bar-pct"
+                        id="output-pct-${i}"></span>
+                </div>
+                <span class="output-bar-pct-outside"
+                    id="output-pct-out-${i}">0%</span>
+            </div>
+        </div>
+    `).join('');
+        }
+
+        function updateOutputBars(predictions) {
+            const best = predictions.reduce((a, b) =>
+                a.probability > b.probability ? a : b
+            );
+            const isAbove = best.probability >= THRESHOLD;
+            const isBg = isBgClass(best.className);
+            const isDetected = isAbove && !isBg;
+
+            predictions.forEach((p, i) => {
+                const pct = Math.round(p.probability * 100);
+                const barEl = document.getElementById(`output-bar-${i}`);
+                const pctEl = document.getElementById(`output-pct-${i}`);
+                const pctOutEl = document.getElementById(`output-pct-out-${i}`);
+                const labelEl = document.getElementById(`output-label-${i}`);
+                if (!barEl) return;
+
+                const cls = classes.find(c => c.name === p.className);
+                const color = cls?.color || CLASS_COLORS[i % CLASS_COLORS.length];
+
+                barEl.style.width = pct + '%';
+                barEl.style.background = color;
+
+                if (pct > 20) {
+                    pctEl.textContent = pct + '%';
+                    pctOutEl.textContent = '';
+                } else {
+                    pctEl.textContent = '';
+                    pctOutEl.textContent = pct + '%';
+                }
+
+                if (labelEl) {
+                    labelEl.textContent = p.className;
+                    labelEl.style.color = color;
+                }
+            });
+
+            updateDetectStatus(best, isDetected, isBg && isAbove);
+        }
+
+        function updateDetectStatus(best, isDetected, isBgDetected) {
+            const statusEl = document.getElementById('detectStatus');
+            const pct = (best.probability * 100).toFixed(1);
+            const cls = classes.find(c => c.name === best.className);
+            const color = cls?.color || '#f54254';
+
+            if (isDetected) {
+                statusEl.style.background = color + '14';
+                statusEl.style.borderBottom = `2px solid ${color}30`;
+                statusEl.innerHTML = `
+            <div style="width:36px;height:36px;border-radius:50%;
+                background:${color};display:flex;
+                align-items:center;justify-content:center;
+                font-size:18px;flex-shrink:0;">✅</div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:800;
+                    color:${color};white-space:nowrap;
+                    overflow:hidden;text-overflow:ellipsis;">
+                    ${best.className}
+                </div>
+                <div style="font-size:11px;color:#64748b;margin-top:1px;">
+                    Detected — ${pct}% confidence
+                </div>
+            </div>
+            <div style="font-size:22px;font-weight:900;
+                color:${color};flex-shrink:0;">
+                ${Math.round(best.probability * 100)}%
+            </div>`;
+            } else if (isBgDetected) {
+                statusEl.style.background = '#fafafa';
+                statusEl.style.borderBottom = '2px dashed #e2e8f0';
+                statusEl.innerHTML = `
+            <div style="width:36px;height:36px;border-radius:50%;
+                background:#f1f5f9;display:flex;
+                align-items:center;justify-content:center;
+                font-size:18px;flex-shrink:0;">🌄</div>
+            <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;color:#64748b;">
+                    No Object Detected</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:1px;">
+                    Background — ${pct}%</div>
+            </div>`;
+            } else {
+                statusEl.style.background = '#fafafa';
+                statusEl.style.borderBottom = '1px solid #f1f5f9';
+                statusEl.innerHTML = `
+            <div style="width:36px;height:36px;border-radius:50%;
+                background:#f1f5f9;display:flex;
+                align-items:center;justify-content:center;
+                font-size:18px;flex-shrink:0;">🔍</div>
+            <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;color:#94a3b8;">
+                    Not Detected</div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:1px;">
+                    Best: ${best.className} at ${pct}%
+                    (need ${Math.round(THRESHOLD * 100)}%)
+                </div>
+            </div>`;
+            }
+        }
+
+        function resetDetectStatus() {
+            const statusEl = document.getElementById('detectStatus');
+            statusEl.style.background = '#fafafa';
+            statusEl.style.borderBottom = '1px solid #f1f5f9';
+            statusEl.innerHTML = `
+        <div style="width:36px;height:36px;border-radius:50%;
+            background:#f1f5f9;display:flex;
+            align-items:center;justify-content:center;
+            font-size:18px;flex-shrink:0;">🔍</div>
+        <div>
+            <div style="font-size:13px;font-weight:700;color:#94a3b8;">
+                Not Detected</div>
+            <div style="font-size:11px;color:#cbd5e1;margin-top:1px;">
+                Start webcam to preview</div>
+        </div>`;
+            classes.forEach((cls, i) => {
+                const b = document.getElementById(`output-bar-${i}`);
+                const p = document.getElementById(`output-pct-${i}`);
+                const o = document.getElementById(`output-pct-out-${i}`);
+                if (b) b.style.width = '0%';
+                if (p) p.textContent = '';
+                if (o) o.textContent = '0%';
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // RENDER
+        // ══════════════════════════════════════════════════════════════
+        function render() {
+            renderClasses();
+            renderStats();
+            initOutputBars();
+        }
+
+        function renderClasses() {
+            const container = document.getElementById('classList');
+            container.innerHTML = '';
+
+            classes.forEach((cls, idx) => {
+                const card = document.createElement('div');
+                card.className = 'class-card';
+                card.style.borderLeftColor = cls.color;
+
+                const isBg = isBgClass(cls.name);
+
+                const thumbsHtml = cls.images.map((img, imgIdx) => `
+            <div class="thumb-wrap">
+                <img src="${img.url}" alt="sample"/>
+                <button class="thumb-del"
+                    onclick="removeImage(${idx},${imgIdx})">✕</button>
+            </div>`).join('');
+
+                const camHtml = activeCamIdx === idx ? `
+            <div class="video-wrap">
+                <video id="liveVideo" class="live-video"
+                    autoplay playsinline muted></video>
+                <div class="crop-overlay"></div>
+            </div>
+            <div style="font-size:11px;color:#64748b;
+                text-align:center;margin-bottom:6px;">
+                📐 Dashed box = capture area &nbsp;·&nbsp;
+                <b>${CROP_SIZE}×${CROP_SIZE}px</b> crop
+            </div>
+            <div class="cam-btns">
+                <button class="hold-btn"
+                    style="background:${cls.color}"
+                    onmousedown="startHold(${idx})"
+                    onmouseup="stopHold()"
+                    onmouseleave="stopHold()"
+                    ontouchstart="startHold(${idx})"
+                    ontouchend="stopHold()"
+                >Hold to Capture</button>
+                <button class="stop-cam-btn"
+                    onclick="stopCapture()">Stop</button>
+            </div>` : `
+            <div class="add-btns">
+                <button class="add-btn"
+                    style="color:${cls.color};
+                           border-color:${cls.color};
+                           background:${cls.color}18"
+                    onclick="startCapture(${idx})"
+                >📷 Webcam</button>
+                <button class="add-btn"
+                    style="color:${cls.color};
+                           border-color:${cls.color};
+                           background:${cls.color}18"
+                    onclick="uploadImages(${idx})"
+                >⬆ Upload</button>
+            </div>
+            ${isBg ? `
+            <div style="font-size:11px;color:#92400e;
+                background:#fffbeb;border-radius:6px;
+                padding:6px 10px;margin-top:4px;">
+                🌄 Point at empty room — no objects in frame
+            </div>` : ''}`;
+
+                card.innerHTML = `
+            <div class="class-header">
+                <input class="class-name"
+                    style="color:${cls.color}"
+                    value="${cls.name}"
+                    onchange="renameClass(${idx}, this.value)"
+                    oninput="renameClass(${idx}, this.value)"/>
+                <span class="sample-count" id="count-${idx}">
+                    ${cls.images.length} samples
+                </span>
+                <button class="remove-btn"
+                    onclick="removeClass(${idx})">✕</button>
+            </div>
+            ${isBg ? `
+            <div style="display:flex;align-items:center;
+                gap:4px;margin-bottom:8px;">
+                <span style="font-size:10px;font-weight:700;
+                    color:#92400e;background:#fef3c7;
+                    padding:2px 8px;border-radius:10px;">
+                    🌄 BACKGROUND CLASS
+                </span>
+            </div>` : ''}
+            ${camHtml}
+            <div class="thumbs" id="thumbs-${idx}">
+                ${thumbsHtml}
+            </div>`;
+
+                container.appendChild(card);
+
+                if (activeCamIdx === idx && activeCamStream) {
+                    requestAnimationFrame(() => {
+                        const v = document.getElementById('liveVideo');
+                        if (v && !v.srcObject) {
+                            v.srcObject = activeCamStream;
+                            v.play().catch(() => { });
+                        }
+                    });
+                }
+            });
+        }
+
+        function renderStats() {
+            document.getElementById('statsList').innerHTML =
+                classes.map(cls => `
+            <div class="stat-row">
+                <div class="stat-dot" style="background:${cls.color}"></div>
+                <span class="stat-name">${cls.name}</span>
+                <span class="stat-count">${cls.images.length}</span>
+            </div>`).join('');
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // CLASS MANAGEMENT
+        // ══════════════════════════════════════════════════════════════
+        function addClass() {
+            const id = nextClassId++;
+            classes.push({
+                id, name: `Class${id}`, images: [],
+                color: CLASS_COLORS[(id - 1) % CLASS_COLORS.length]
+            });
+            render();
+        }
+
+        function addBackgroundClass() {
+            const exists = classes.find(c => isBgClass(c.name));
+            if (exists) { alert('Background class already exists!'); return; }
+            const id = nextClassId++;
+            classes.push({ id, name: 'Background', images: [], color: '#94a3b8' });
+            render();
+            setStatus('Background class added! Point camera at empty room and capture 100+ images.');
+        }
+
+        function removeClass(idx) {
+            if (classes.length <= 2) { alert('Need at least 2 classes'); return; }
+            if (activeCamIdx === idx) stopCapture();
+            classes.splice(idx, 1);
+            render();
+        }
+
+        function renameClass(idx, name) {
+            classes[idx].name = name;
+            renderStats();
+            const labelEl = document.getElementById(`output-label-${idx}`);
+            if (labelEl) labelEl.textContent = name;
+        }
+
+        function removeImage(classIdx, imgIdx) {
+            classes[classIdx].images.splice(imgIdx, 1);
+            const countEl = document.getElementById(`count-${classIdx}`);
+            if (countEl) countEl.textContent = `${classes[classIdx].images.length} samples`;
+            const thumbs = document.getElementById(`thumbs-${classIdx}`);
+            if (thumbs) thumbs.children[imgIdx]?.remove();
+            renderStats();
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // WEBCAM CAPTURE
+        // ══════════════════════════════════════════════════════════════
+        async function startCapture(classIdx) {
+            try {
+                if (activeCamStream) {
+                    activeCamStream.getTracks().forEach(t => t.stop());
+                    activeCamStream = null;
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 320, height: 320, facingMode: 'user' }
+                });
+                activeCamStream = stream;
+                activeCamIdx = classIdx;
+                render();
+                requestAnimationFrame(() => {
+                    const v = document.getElementById('liveVideo');
+                    if (v) {
+                        v.srcObject = stream;
+                        v.play().catch(e => console.warn('play:', e));
+                    }
+                });
+            } catch (e) { alert('Camera Error: ' + e.message); }
+        }
+
+        function captureFrame(classIdx) {
+            const video = document.getElementById('liveVideo');
+            if (!video || video.readyState < 2) return;
+
+            // Use CROP_SIZE for the intermediate canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = CROP_SIZE;
+            canvas.height = CROP_SIZE;
+
+            centerCropToCanvas(video, canvas);
+            applyBackgroundFade(canvas);
+
+            // Black-frame guard (sample 8×8 area scaled to canvas size)
+            const sampleSize = Math.min(8, CROP_SIZE);
+            const px = canvas.getContext('2d')
+                .getImageData(0, 0, sampleSize, sampleSize).data;
+            if (Array.from(px).every(v => v < 15)) return;
+
+            const url = canvas.toDataURL('image/jpeg', 0.8);
+            classes[classIdx].images.push({ url });
+
+            const thumbs = document.getElementById(`thumbs-${classIdx}`);
+            if (thumbs) {
+                const imgIdx = classes[classIdx].images.length - 1;
+                const wrap = document.createElement('div');
+                wrap.className = 'thumb-wrap';
+                wrap.innerHTML = `
+            <img src="${url}" alt="sample"/>
+            <button class="thumb-del"
+                onclick="removeImage(${classIdx},${imgIdx})">✕</button>`;
+                thumbs.appendChild(wrap);
+            }
+
+            const countEl = document.getElementById(`count-${classIdx}`);
+            if (countEl) countEl.textContent = `${classes[classIdx].images.length} samples`;
+
+            renderStats();
+        }
+
+        function startHold(classIdx) {
+            captureFrame(classIdx);
+            captureTimer = setInterval(() => captureFrame(classIdx), 120);
+        }
+
+        function stopHold() {
+            clearInterval(captureTimer);
+            captureTimer = null;
+        }
+
+        function stopCapture() {
+            stopHold();
+            if (activeCamStream) {
+                activeCamStream.getTracks().forEach(t => t.stop());
+                activeCamStream = null;
+            }
+            activeCamIdx = null;
+            render();
+        }
+
+        function uploadImages(classIdx) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.multiple = true;
+            input.onchange = (e) => {
+                Array.from(e.target.files).forEach(file => {
+                    classes[classIdx].images.push({ url: URL.createObjectURL(file) });
+                });
+                render();
+            };
+            input.click();
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // TRAIN
+        // ══════════════════════════════════════════════════════════════
+        function setTrainState(html) {
+            document.getElementById('trainStateBox').innerHTML = html;
+        }
+
+        async function trainModel() {
+            const valid = classes.filter(c => c.images.length >= 2);
+            if (valid.length < 2) {
+                alert('Add at least 2 images to each class');
+                return;
+            }
+
+            document.getElementById('trainBtn').disabled = true;
+            trained = false;
+            mobileNetV3 = null;
+            headModel = null;
+            classNamesCopy = [];
+            updateButtons();
+
+            const showProgress = (pct, msg) => {
+                setTrainState(`
+            <div class="state-progress">
+                <div class="progress-pct">${pct}%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:${pct}%"></div>
+                </div>
+                <div class="progress-label">${msg}</div>
+            </div>`);
+                setStatus(msg);
+            };
+
+            try {
+                showProgress(0, 'Loading TensorFlow...');
+                await tf.ready();
+
+                showProgress(5, 'Loading MobileNet V3 from TF Hub...');
+                showProgress(6, 'This may take 15-30 seconds...');
+
+                mobileNetV3 = await tf.loadGraphModel(
+                    MOBILENET_V3_URL, { fromTFHub: true }
+                );
+
+                showProgress(12, 'Initializing V3 model...');
+                const testTensor = tf.zeros([1, 224, 224, 3]);
+                const testOutput = mobileNetV3.execute(testTensor);
+                const featureSize = testOutput.shape[testOutput.shape.length - 1];
+                testTensor.dispose();
+                testOutput.dispose();
+
+                // ── Extract features ── (uses CROP_SIZE via prepareCanvas)
+                showProgress(15, `Extracting features (crop: ${CROP_SIZE}px)...`);
+
+                const xs = [], ys = [];
+                let done = 0;
+                const total = classes.reduce((s, c) => s + c.images.length, 0);
+
+                for (let ci = 0; ci < classes.length; ci++) {
+                    for (const img of classes[ci].images) {
+                        await new Promise((resolve) => {
+                            const el = new Image();
+                            el.crossOrigin = 'anonymous';
+                            el.onload = async () => {
+                                try {
+                                    const feat = await extractFeaturesAsync(el);
+                                    if (feat) { xs.push(feat); ys.push(ci); }
+                                } catch (err) {
+                                    console.warn('Feature error:', err);
+                                }
+                                done++;
+                                showProgress(
+                                    Math.round(15 + (done / total) * 35),
+                                    `Extracting ${done}/${total}...`
+                                );
+                                resolve();
+                            };
+                            el.onerror = () => { done++; resolve(); };
+                            el.src = img.url;
+                        });
+                    }
+                }
+
+                if (xs.length === 0) throw new Error('No features extracted');
+
+                showProgress(52, 'Building classifier...');
+
+                const numClasses = classes.length;
+                const xsTensor = tf.stack(xs);
+                const ysTensor = tf.oneHot(tf.tensor1d(ys, 'int32'), numClasses);
+                xs.forEach(x => x.dispose());
+
+                headModel = tf.sequential({
+                    layers: [
+                        tf.layers.dense({
+                            inputShape: [featureSize], units: 128, activation: 'relu'
+                        }),
+                        tf.layers.dropout({ rate: 0.3 }),
+                        tf.layers.dense({ units: 64, activation: 'relu' }),
+                        tf.layers.dense({ units: numClasses, activation: 'softmax' })
+                    ]
+                });
+
+                headModel.compile({
+                    optimizer: tf.train.adam(0.0005),
+                    loss: 'categoricalCrossentropy',
+                    metrics: ['accuracy']
+                });
+
+                showProgress(55, 'Training...');
+
+                await headModel.fit(xsTensor, ysTensor, {
+                    epochs: 80,
+                    batchSize: 16,
+                    validationSplit: 0.1,
+                    callbacks: {
+                        onEpochEnd: (epoch, logs) => {
+                            const pct = 55 + Math.round(((epoch + 1) / 80) * 45);
+                            const acc = logs?.acc
+                                ? ` acc:${(logs.acc * 100).toFixed(0)}%` : '';
+                            const val = logs?.val_acc
+                                ? ` val:${(logs.val_acc * 100).toFixed(0)}%` : '';
+                            showProgress(pct, `Epoch ${epoch + 1}/80${acc}${val}`);
+                        }
+                    }
+                });
+
+                xsTensor.dispose();
+                ysTensor.dispose();
+
+                classNamesCopy = classes.map(c => c.name);
+                trained = true;
+
+                showProgress(100, 'Training complete!');
+                setStatus(`Training complete! Crop: ${CROP_SIZE}px. Start webcam to preview.`);
+
+                const totalImages = classes.reduce((s, c) => s + c.images.length, 0);
+                setTrainState(`
+            <div class="state-done">
+                <div class="icon">✅</div>
+                <h3>Model Trained!</h3>
+                <p>${totalImages} images · ${classes.length} classes</p>
+                <p style="font-size:11px;color:#64748b;margin-top:2px;">
+                    Crop size used: <b>${CROP_SIZE}×${CROP_SIZE}px</b>
+                </p>
+                <p style="font-size:11px;
+                    background:linear-gradient(135deg,#7c3aed,#0ea5e9);
+                    -webkit-background-clip:text;
+                    -webkit-text-fill-color:transparent;
+                    margin-top:4px;font-weight:700;">
+                    MobileNet V3 — best accuracy
+                </p>
+                <button class="retrain-btn" onclick="resetTrain()">Retrain</button>
+            </div>`);
+
+                initOutputBars();
+                updateButtons();
+
+            } catch (e) {
+                console.error('Training error:', e);
+                alert('Training Failed: ' + e.message);
+                setStatus('Training failed: ' + e.message);
+                setTrainState(`
+            <div class="state-ready">
+                <div class="icon">🧠</div>
+                <h3>Ready to train.</h3>
+                <p>Add at least 2 images per class<br>then press Train.</p>
+            </div>`);
+            } finally {
+                document.getElementById('trainBtn').disabled = false;
+            }
+        }
+
+        function resetTrain() {
+            trained = false;
+            mobileNetV3 = null;
+            headModel = null;
+            classNamesCopy = [];
+            updateButtons();
+            setTrainState(`
+        <div class="state-ready">
+            <div class="icon">🧠</div>
+            <h3>Ready to train.</h3>
+            <p>Add at least 2 images per class<br>then press Train.</p>
+        </div>`);
+            setStatus('');
+            initOutputBars();
+            resetDetectStatus();
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // TEST WEBCAM
+        // ══════════════════════════════════════════════════════════════
+        async function toggleTestWebcam() {
+            if (testWebcamActive) { stopTestWebcam(); return; }
+            if (!trained || !mobileNetV3 || !headModel) {
+                alert('Train first!'); return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 320, height: 320 }
+                });
+
+                const video = document.getElementById('testVideo');
+                const placeholder = document.getElementById('camPlaceholder');
+
+                video.srcObject = stream;
+                video.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+                await video.play();
+
+                testWebcamActive = true;
+                document.getElementById('testBtn').textContent = '■ Stop';
+
+                testTimer = setInterval(async () => {
+                    const v = document.getElementById('testVideo');
+                    if (!v || v.readyState < 2) return;
+                    if (!mobileNetV3 || !headModel) return;
+                    try {
+                        const predictions = await predictFromElement(v);
+                        if (predictions) updateOutputBars(predictions);
+                    } catch (err) {
+                        console.warn('Predict error:', err);
+                    }
+                }, 300);
+
+            } catch (e) { alert('Camera Error: ' + e.message); }
+        }
+
+        function stopTestWebcam() {
+            clearInterval(testTimer);
+            const video = document.getElementById('testVideo');
+            const placeholder = document.getElementById('camPlaceholder');
+            if (video?.srcObject) {
+                video.srcObject.getTracks().forEach(t => t.stop());
+                video.srcObject = null;
+                video.style.display = 'none';
+            }
+            if (placeholder) placeholder.style.display = 'flex';
+            testWebcamActive = false;
+            document.getElementById('testBtn').textContent = 'Start Webcam';
+            resetDetectStatus();
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // DEPLOY TO BLOCKLY
+        // ══════════════════════════════════════════════════════════════
+        function deployToBlockly() {
+            if (!trained) { alert('Train first!'); return; }
+            const classNames = classes
+                .filter(c => c.images.length > 0).map(c => c.name);
+            const payload = JSON.stringify({
+                type: 'AI_MODEL_TRAINED', classes: classNames
+            });
+            window.parent?.postMessage(payload, '*');
+            window.opener?.postMessage(payload, '*');
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(payload);
+            }
+            alert(`AI blocks for "${classNames.join('", "')}" added!`);
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // DEPLOY TO K230
+        // ══════════════════════════════════════════════════════════════
+        async function deployToK230() {
+            if (!trained || !headModel) { alert('Train first!'); return; }
+
+            const btn = document.getElementById('deployK230Btn');
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner"></span>Deploying...';
+            setStatus('Converting model (this may take 1-2 minutes)...');
+
+            try {
+                let savedArtifacts = null;
+                await headModel.save(
+                    tf.io.withSaveHandler(async (artifacts) => {
+                        savedArtifacts = artifacts;
+                        return { modelArtifactsInfo: { dateSaved: new Date() } };
+                    })
+                );
+                if (!savedArtifacts) throw new Error('Failed to capture artifacts');
+
+                const modelJson = {
+                    modelTopology: savedArtifacts.modelTopology,
+                    weightsManifest: [{
+                        paths: ['weights.bin'],
+                        weights: savedArtifacts.weightSpecs
+                    }],
+                    format: 'layers-model',
+                    generatedBy: 'TensorFlow.js',
+                    convertedBy: null
+                };
+
+                const formData = new FormData();
+                formData.append('model_json',
+                    new Blob([JSON.stringify(modelJson)], { type: 'application/json' }),
+                    'model.json');
+                formData.append('weights_bin',
+                    new Blob([savedArtifacts.weightData], { type: 'application/octet-stream' }),
+                    'weights.bin');
+                formData.append('labels', JSON.stringify(classes.map(c => c.name)));
+                
+                const k230Ip = document.getElementById('k230IpInput').value.trim() || '192.168.4.1';
+                const k230Port = document.getElementById('k230PortInput').value.trim() || '8080';
+
+                // Step 1: Convert on Backend
+                const resp = await fetch(`${CONVERT_SERVER}/convert`, {
+                    method: 'POST', body: formData
+                });
+
+                if (!resp.ok) {
+                    const errText = await resp.text();
+                    throw new Error(`Server error ${resp.status}: ${errText}`);
+                }
+
+                setStatus('Unpacking converted model...');
+                const zipBlob = await resp.blob();
+                const zip = await JSZip.loadAsync(zipBlob);
+                
+                const kmodelFile = zip.file('model.kmodel');
+                const labelsFile = zip.file('labels.txt');
+                if (!kmodelFile || !labelsFile) throw new Error('Invalid zip from server');
+                
+                const kmodelBlob = await kmodelFile.async('blob');
+                const labelsBlob = await labelsFile.async('blob');
+
+                const k230Url = `http://${k230Ip}:${k230Port}/upload`;
+
+                setStatus(`Pushing directly to K230 via WiFi (${k230Ip})...`);
+
+                // Step 2: Push from Browser to K230 (Requires CORS on K230)
+                try {
+                    const resp1 = await fetch(k230Url, {
+                        method: 'POST',
+                        headers: { 'X-Filename': 'model.kmodel' },
+                        body: kmodelBlob
+                    });
+                    if (!resp1.ok) throw new Error(`HTTP ${resp1.status}`);
+
+                    // Sleep for 1.5 seconds to let MicroPython SD card sync finish before we bombard it again
+                    await new Promise(r => setTimeout(r, 1500));
+
+                    const resp2 = await fetch(k230Url, {
+                        method: 'POST',
+                        headers: { 'X-Filename': 'labels.txt' },
+                        body: labelsBlob
+                    });
+                    if (!resp2.ok) throw new Error(`HTTP ${resp2.status}`);
+
+                } catch (pushErr) {
+                    alert(`❌ Failed to connect to K230 at ${k230Ip}:${k230Port}.\n\nEnsure:\n1) Your PC is connected to YAHBOOM-K230 WiFi\n2) K230 is running k230_receive_server.py\n\nError: ${pushErr.message}`);
+                    setStatus('Deploy failed: K230 Unreachable.');
+                    return;
+                }
+
+                setStatus(`Deployed! model.kmodel and labels.txt pushed to K230.`);
+                alert(`✅ Successfully deployed directly from browser to K230 (IP: ${k230Ip})!\n\nFiles saved to /sdcard/kmodel/`);
+
+            } catch (e) {
+                console.error('Deploy error:', e);
+                alert('Deploy Failed: ' + e.message);
+                setStatus('Deploy failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // EXPORT .kmodel + labels.txt
+        // ══════════════════════════════════════════════════════════════
+        async function exportKmodel() {
+            if (!trained || !headModel) { alert('Train first!'); return; }
+
+            const btn = document.getElementById('exportBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Exporting...';
+            setStatus('Exporting model...');
+
+            try {
+                let savedArtifacts = null;
+                await headModel.save(
+                    tf.io.withSaveHandler(async (artifacts) => {
+                        savedArtifacts = artifacts;
+                        return { modelArtifactsInfo: { dateSaved: new Date() } };
+                    })
+                );
+                if (!savedArtifacts) throw new Error('Failed to capture artifacts');
+
+                const modelJson = {
+                    modelTopology: savedArtifacts.modelTopology,
+                    weightsManifest: [{
+                        paths: ['weights.bin'],
+                        weights: savedArtifacts.weightSpecs
+                    }],
+                    format: 'layers-model',
+                    generatedBy: 'TensorFlow.js',
+                    convertedBy: null
+                };
+
+                const formData = new FormData();
+                formData.append('model_json',
+                    new Blob([JSON.stringify(modelJson)], { type: 'application/json' }),
+                    'model.json');
+                formData.append('weights_bin',
+                    new Blob([savedArtifacts.weightData], { type: 'application/octet-stream' }),
+                    'weights.bin');
+                formData.append('labels', JSON.stringify(classes.map(c => c.name)));
+
+                setStatus('Sending to Docker server...');
+
+                const resp = await fetch(`${CONVERT_SERVER}/convert`, {
+                    method: 'POST', body: formData
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({ error: 'Server error' }));
+                    throw new Error(err.error || `Error ${resp.status}`);
+                }
+
+                setStatus('Unpacking files...');
+                const zipBlob = await resp.blob();
+                const contentType = resp.headers.get('content-type') || '';
+
+                if (contentType.includes('zip')) {
+                    const zip = await JSZip.loadAsync(zipBlob);
+                    const kf = zip.file('model.kmodel');
+                    if (kf) downloadBlob(await kf.async('blob'), 'model.kmodel');
+                    await new Promise(r => setTimeout(r, 500));
+                    const lf = zip.file('labels.txt');
+                    if (lf) downloadBlob(await lf.async('blob'), 'labels.txt');
+                } else {
+                    downloadBlob(zipBlob, 'model.kmodel');
+                    await new Promise(r => setTimeout(r, 500));
+                    downloadBlob(
+                        new Blob([classes.map(c => c.name).join('\n')], { type: 'text/plain' }),
+                        'labels.txt'
+                    );
+                }
+
+                setStatus('model.kmodel and labels.txt downloaded!');
+                alert('✅ Two files downloaded:\n\n1. model.kmodel\n2. labels.txt\n\nCopy both to /sdcard/models/ on K230.');
+
+            } catch (e) {
+                console.error('Export error:', e);
+                alert('Export Failed: ' + e.message);
+                setStatus('Export failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Export .kmodel for K230';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // NAVIGATION
+        // ══════════════════════════════════════════════════════════════
+        function goBack() {
+            stopCapture(); stopTestWebcam();
+            const payload = JSON.stringify({ type: 'CLOSE_AI_TRAIN' });
+            window.parent?.postMessage(payload, '*');
+            window.opener?.postMessage(payload, '*');
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(payload);
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // INIT
+        // ══════════════════════════════════════════════════════════════
+        render();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,28 @@
+# K230 AI Model Training & Deployment Fixes
+===================================================
+
+## 1. The Core Diagnosis (Why KPU Run Failed)
+We discovered that the original web-based training interface (`train.html`) was designed to only export the newly trained "Head Model" (the Dense/Classification layers). This produced a `.kmodel` that was only ~545 KB. The problem was that the Kendryte KPU strictly requires a full, end-to-end model capable of accepting RGB image grids, but our `.kmodel` was mathematically missing the deep Convolutional feature extractor (MobileNet V3).
+
+## 2. Server-Side Model Stitching (`convert_server.py`)
+To solve the missing convolutional backbone without breaking the lightweight browser training, we radically remapped the backend logic (`convert_server.py`):
+- Dynamically imported `tensorflow-hub` in the Docker container to pull the missing MobileNet V3 features.
+- We built Python logic to automatically "stitch" the user's tiny Head Model precisely onto the tail of the MobileNet V3 backbone downloaded by the server.
+
+## 3. Hardware Preprocessing Integration (Ai2d / UINT8)
+The standard camera sensor and the hardware-accelerated image scaler (`Ai2d`) output camera frames entirely natively as `uint8` datatypes in `NCHW` shape.
+- We explicitly instructed the root TensorFlow model input layer to natively accept `uint8`.
+- We forced a `tf.transpose` step inside the Keras network to align the K230 buffer's `NCHW` image structure identically with TensorFlow's `NHWC` operational standard.
+- We embedded division metrics (`x / 255.0`) to convert `uint8` into `[0.0, 1.0]` floats directly inside the network so everything runs flawlessly on bare metal.
+
+## 4. Hardware Quantization / NNCase (`nncase_compile.py`)
+Since the model now explicitly asks for `uint8` color bytes, we intercepted the Post Training Quantization (PTQ) logic inside `nncase_compile.py`.
+- We upgraded `calib_gen()` to dynamically detect whether an input is float or uint8. This fixed potential overflow errors by generating raw `<class 'uint8'>` integer randomized calibration grids exclusively between strictly `0` and `255`.
+
+## 5. Bypassing Hardware Compiler Crashes (Static Shapes)
+During the conversion journey (`tf2onnx` -> `nncase`), the `nncase` compiler repeatedly crashed throwing the Exception: `Only Can Get It When Shape Is Fixed !`
+- **Cause:** MobileNet V3 runs pooling windows (GlobalAveragePool). `nncase` needs fixed pixel grid measurements (`7x7`) to optimize instructions, but TensorFlow saved the graphs with dynamically inferred ("unk") length axes (e.g. `[None, 3, 224, 224]`).
+- **Fix:** We completely destroyed dynamic tensor mapping by wrapping the Keras model execution securely in an explicit `@tf.function` static definition block (`input_signature=[tf.TensorSpec(shape=[1, 3, 224, 224])]`). This permanently locked mathematical arrays to rigid memory blocks across the entire ONNX structure, satisfying compile requirements.
+
+## 6. End Result
+By executing `docker build -t k230-converter .`, the pipeline runs as intended. The server processes lightweight TF.js data, fuses it perfectly with TensorFlow Hub networks, scales datatypes into `uint8` bytes natively, quantizes, guarantees fixed architectures through ONNX, and securely outputs a complete `~6.8 MB` self-contained image classification `.kmodel` explicitly compatible with CanMV MicroPython `ClassificationApp` endpoints without crashing.

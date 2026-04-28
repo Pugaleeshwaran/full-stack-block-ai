@@ -33,11 +33,26 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://full-stack-block-ai.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:19006",
+        "http://localhost:8081"
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "https://full-stack-block-ai.onrender.com",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
 
 def rebuild_model_from_tfjs(model_json_path, weights_bin_path, saved_model_dir):
     import tensorflow as tf
@@ -440,7 +455,10 @@ async def deploy(
             content={"error": str(e)}
         )
 
-
+@app.get("/")
+async def root():
+    return {"status": "backend running"}
+    
 @app.get("/health")
 async def health():
     return {"status": "ok"}
